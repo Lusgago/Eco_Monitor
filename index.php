@@ -1,5 +1,20 @@
+<?php
+// Inicia a sessão e verifica se o usuário está logado
+session_start();
+if (!isset($_SESSION['loggedin'])) {
+    header("Location: login.php");
+    exit();
+}
+
+include("conection.php");
+
+$sql = "SELECT * FROM users";
+$result = $conexao->query($sql);
+?>
+
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <title>EcoMonitor - Calculadora de Energia Solar</title>
@@ -11,27 +26,32 @@
             padding: 20px;
             color: #333;
         }
+
         .container {
             max-width: 800px;
             margin: 0 auto;
             background: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
+
         h1 {
             color: #2c3e50;
             text-align: center;
             font-size: 24px;
         }
+
         .form-group {
             margin-bottom: 15px;
         }
+
         label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
         }
+
         input {
             width: 100%;
             padding: 8px;
@@ -39,6 +59,7 @@
             border-radius: 4px;
             font-family: 'Courier New', monospace;
         }
+
         button {
             background: #27ae60;
             color: white;
@@ -49,6 +70,7 @@
             font-family: 'Courier New', monospace;
             font-weight: bold;
         }
+
         .terminal {
             background: #000;
             color: #00ff00;
@@ -58,10 +80,12 @@
             white-space: pre-wrap;
             font-family: 'Courier New', monospace;
         }
+
         .divider {
             border-top: 1px dashed #00ff00;
             margin: 15px 0;
         }
+
         .summary-box {
             background: #e8f8f5;
             border: 2px solid #27ae60;
@@ -70,24 +94,29 @@
             margin-top: 20px;
             margin-bottom: 20px;
         }
+
         .summary-box h3 {
             color: #27ae60;
             margin-top: 0;
             text-align: center;
         }
+
         .summary-item {
             display: flex;
             justify-content: space-between;
             margin-bottom: 10px;
         }
+
         .summary-item strong {
             color: #2c3e50;
         }
+
         .loading {
             text-align: center;
             margin: 20px 0;
             display: none;
         }
+
         .error {
             background: #ffecec;
             border: 2px solid #e74c3c;
@@ -97,10 +126,48 @@
             margin-top: 20px;
             display: none;
         }
+
+        .user-info {
+            text-align: right;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
+        <div class="user-info">
+            Logado como: <?php echo $_SESSION['email']; ?>
+            <a href="logout.php" class="logout-btn">Sair</a>
+        </div>
+
+        <?php
+        if ($result->num_rows > 0) {
+            while ($linha = $result->fetch_assoc()) {
+                echo "<p>Nome: " . $linha["nome"] . "</p>";
+            }
+        } else {
+            echo "<p>Nenhum resultado encontrado.</p>";
+        }
+        ?>
+
         <h1>EcoMonitor - Calculadora de Economia Solar</h1>
         <form id="energyForm">
             <div class="form-group">
@@ -121,10 +188,10 @@
             </div>
             <button type="submit">Calcular</button>
         </form>
-        
-                    <div id="loading" class="loading">Calculando resultados...</div>
+
+        <div id="loading" class="loading">Calculando resultados...</div>
         <div id="error" class="error"></div>
-        
+
         <!-- Novo campo para exibir o resumo dos resultados -->
         <div id="summary" class="summary-box" style="display:none;">
             <h3>RESUMO DOS RESULTADOS</h3>
@@ -141,20 +208,20 @@
                 <strong id="payback-time">0 anos e 0 meses</strong>
             </div>
         </div>
-        
+
         <div id="result" class="terminal" style="display:none;"></div>
     </div>
 
     <script>
         document.getElementById('energyForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             // Mostrar loading
             document.getElementById('loading').style.display = 'block';
             document.getElementById('error').style.display = 'none';
             document.getElementById('summary').style.display = 'none';
             document.getElementById('result').style.display = 'none';
-            
+
             // Dados para enviar ao backend
             const data = {
                 daily_kwh: parseFloat(document.getElementById('daily_kwh').value),
@@ -162,38 +229,38 @@
                 solar_gen: parseFloat(document.getElementById('solar_gen').value),
                 solar_cost: parseFloat(document.getElementById('solar_cost').value) || 0
             };
-            
+
             // Em vez de usar fetch para a API, vamos fazer os cálculos diretamente no frontend
             // para evitar problemas de CORS
             const resultado = calcularEnergia(data);
             displayResults(resultado);
         });
-        
+
         function calcularEnergia(data) {
             const daily_kwh = data.daily_kwh;
             const price_kwh = data.price_kwh;
             const solar_gen = data.solar_gen;
             const solar_cost = data.solar_cost;
-            
+
             const monthly_usage = daily_kwh * 30;
             const monthly_cost_no_solar = monthly_usage * price_kwh;
-            
+
             const monthly_solar_gen = solar_gen * 30;
             const remaining_energy = Math.max(0, monthly_usage - monthly_solar_gen);
             const monthly_cost_with_solar = remaining_energy * price_kwh;
-            
+
             const monthly_savings = monthly_cost_no_solar - monthly_cost_with_solar;
             const annual_savings = monthly_savings * 12;
-            
+
             let payback_years = 0;
             let payback_months = 0;
-            
+
             if (solar_cost > 0 && annual_savings > 0) {
                 const total_years = solar_cost / annual_savings;
                 payback_years = Math.floor(total_years);
                 payback_months = Math.floor((total_years - payback_years) * 12);
             }
-            
+
             return {
                 inputs: {
                     daily_kwh: daily_kwh,
@@ -214,20 +281,20 @@
                 }
             };
         }
-        
+
         function displayResults(data) {
             document.getElementById('loading').style.display = 'none';
-            
+
             // Atualizar o resumo dos resultados
             document.getElementById('monthly-savings').textContent = '$' + data.results.monthly_savings.toFixed(2);
             document.getElementById('annual-savings').textContent = '$' + data.results.annual_savings.toFixed(2);
             document.getElementById('payback-time').textContent = data.results.payback_years + ' anos e ' + data.results.payback_months + ' meses';
             document.getElementById('summary').style.display = 'block';
-            
+
             // Atualizar o terminal com resultados detalhados
             const resultDiv = document.getElementById('result');
             resultDiv.style.display = 'block';
-            
+
             // Formatação idêntica ao terminal
             resultDiv.innerHTML = `
 ================================================================================
@@ -262,4 +329,5 @@ PERÍODO DE RETORNO:
         }
     </script>
 </body>
+
 </html>

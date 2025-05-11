@@ -1,4 +1,3 @@
-# run.py
 import json
 import os
 import sys
